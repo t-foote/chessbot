@@ -65,6 +65,10 @@ class Move:
         return None
     
     def __eq__(self, other) -> bool:
+        if isinstance(self, EmptyMove) and isinstance(other, EmptyMove):
+            return True
+        if isinstance(self, EmptyMove) or isinstance(other, EmptyMove):
+            return False
         return (self.old_file == other.old_file and
                 self.old_rank == other.old_rank and
                 self.new_file == other.new_file and
@@ -144,6 +148,12 @@ class Piece:
             return True
         return False
 
+    def _is_same_color(self, file, rank) -> bool:
+        """
+        Returns True iff occupant of file, rank is the same color as self.
+        """
+        return self.board.occupant(file, rank).white == self.white
+
     def _get_opposing_pieces(self) -> List[Piece]:
         """
         Exactly what the name suggests.
@@ -193,9 +203,9 @@ class Pawn(Piece):
                     (self.board.occupant(self.file + i, self.rank + (self.white * 2 - 1)).white != self.white)):
                 out.append((self.file + i, self.rank + (self.white * 2 - 1)))
         # En-passant:
-        if (self.board.last_move().can_en_passant() == self.file + 1) and (self.rank == int(self.white)*(-1) + 5):
+        if (self.board.retrieve(-2).can_en_passant() == self.file + 1) and (self.rank == int(self.white)*(-1) + 5):
             out.append((self.file + 1, self.rank + (int(self.white) * 2 - 1)))
-        elif (self.board.last_move().can_en_passant() == self.file - 1) and (self.rank == int(self.white)*(-1) + 5):
+        elif (self.board.retrieve(-2).can_en_passant() == self.file - 1) and (self.rank == int(self.white)*(-1) + 5):
             out.append((self.file - 1, self.rank + (int(self.white) * 2 - 1)))
         return out
 
@@ -497,13 +507,9 @@ class Board:
     # def add_move(self, old_move: Tuple[int, int], new_move: Tuple[int, int]):
     #     self._move_log.append((old_move, new_move))
 
-    def en_passant(self, file: int) -> None:
-        """Makes a file eligible for en-passant capture"""
-        self._en_passant = file
-
-    # def can_en_passant(self, file: int) -> bool:
-    #     """Returns True iff en-passant eligible on specified file"""
-    #     pass
+    # def en_passant(self, file: int) -> None:
+    #     """Makes a file eligible for en-passant capture"""
+    #     self._en_passant = file
 
     def occupant(self, file: int, rank: int) -> Optional[Piece]:
         """
@@ -539,8 +545,18 @@ class Board:
                 del piece
                 return None
 
-    def last_move(self) -> Move:
-        return self._move_log[-1]
+    def en_passant(self) -> Optional[Tuple[int, int]]:
+        """
+        Returns a square to which a pawn can take by en-passant; or None if not available.
+        """
+        pass
+
+    def retrieve(self, i: int) -> Move:
+        """Returns the i-th index of the move log, or empty move if IndexError."""
+        try:
+            return self._move_log[i]
+        except IndexError:
+            return self._move_log[0]
 
     def all_pieces(self):
         return self._pieces
