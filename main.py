@@ -5,8 +5,6 @@ _valid_moves vs. available_moves:
 same for all pieces except king, in which _valid_moves doesn't consider checks & castling options. 
 """
 
-RUN = True
-
 
 def human_in(s: str) -> Tuple[int, int]:
     letters = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8}
@@ -203,9 +201,9 @@ class Pawn(Piece):
                     (self.board.occupant(self.file + i, self.rank + (self.white * 2 - 1)).white != self.white)):
                 out.append((self.file + i, self.rank + (self.white * 2 - 1)))
         # En-passant:
-        if (self.board.retrieve(-2).can_en_passant() == self.file + 1) and (self.rank == int(self.white)*(-1) + 5):
+        if (self.board.retrieve(-1).can_en_passant() == self.file + 1) and (self.rank == self.white + 4):
             out.append((self.file + 1, self.rank + (int(self.white) * 2 - 1)))
-        elif (self.board.retrieve(-2).can_en_passant() == self.file - 1) and (self.rank == int(self.white)*(-1) + 5):
+        elif (self.board.retrieve(-1).can_en_passant() == self.file - 1) and (self.rank == self.white + 4):
             out.append((self.file - 1, self.rank + (int(self.white) * 2 - 1)))
         return out
 
@@ -222,17 +220,13 @@ class Pawn(Piece):
                 self.board.promote(file, self.white, promote_to)
                 return True
             return False
-        # elif abs(rank - self.rank) == 2:
-        #     # Moves by 2 squares (makes itself en-passant capture eligible):
-        #     if Piece.move(self, file, rank):
-        #         self.board.en_passant(file)
-        #         return True
-        #     return False
+        # en-passant:
         elif ((file, rank) in self._valid_moves()) and (self.file != file) and (self.board.occupant(file, rank) is None):
             if Piece.move(self, file, rank):
                 self.board.remove_occupant(file, self.rank)
                 return True
             return False
+        # standard pawn move:
         else:
             return Piece.move(self, file, rank)
 
@@ -494,10 +488,7 @@ class Board:
                     out += ' '
                 out += ' '
             out = out[:-1] + '\n'
-        if self.turn:
-            return out + "White to play."
-        else:
-            return out + "Black to play."
+        return out + "White to play." * self.turn + "Black to play." * (not self.turn)
 
     def moved(self, m: Move) -> None:
         self.turn = not self.turn
@@ -589,21 +580,3 @@ class Board:
     def move(self, old: str, new: str) -> bool:
         return self._move(human_in(old)[0], human_in(old)[1],
                           human_in(new)[0], human_in(new)[1])
-
-
-if __name__ == '__main__' and RUN:
-    b = Board()
-    while True:
-        print(b)
-        old = input('Enter square of piece to move: ')
-        if b.occupant(human_in(old)[0], human_in(old)[1]) is None or \
-                b.occupant(human_in(old)[0], human_in(old)[1]).white != b.turn:
-            print('INVALID INPUT')
-        else:
-            out = ''
-            for i in b.occupant(human_in(old)[0], human_in(old)[1]).available_moves():
-                out = out + human_out(i) + ', '
-            print(out)
-            new = input('Enter square to move piece to: ')
-            if not b.move(old, new):
-                print('INVALID MOVE')
