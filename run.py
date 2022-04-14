@@ -21,7 +21,9 @@ en_passant_preset(b)
 while True:
     print(b)
     old = input('Enter square of piece to move: ')
-    if not is_valid_notation(old):
+    if old == 'quit' or old == 'exit':
+        break
+    elif not is_valid_notation(old):
         print(INVALID_INPUT)
     elif b.occupant(human_in(old)[0], human_in(old)[1]) is None or \
             b.occupant(human_in(old)[0], human_in(old)[1]).white != b.turn:

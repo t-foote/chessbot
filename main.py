@@ -1,4 +1,5 @@
 from typing import Dict, Tuple, List, Optional
+from preset_moves import *
 
 """
 _valid_moves vs. available_moves:
@@ -41,6 +42,7 @@ class Move:
     piece: Piece
     can_move: bool
     is_empty_move: bool
+    is_castle_move: bool
 
     def __init__(self, old_file: int, old_rank: int, new_file: int, new_rank: int, piece: Piece):
         self.old_file = old_file
@@ -49,10 +51,10 @@ class Move:
         self.new_rank = new_rank
         self.piece = piece
         self.can_move = (new_file, new_rank) in piece.available_moves()
-        self.is_empty_move = False
+        self.is_empty_move, self.is_castle_move = False, False
 
     def can_en_passant(self) -> Optional[int]:
-        if self.is_empty_move:
+        if self.is_empty_move or self.is_castle_move:
             return None
         if self.piece.white:
             if isinstance(self.piece, Pawn) and self.old_rank == 2 and self.new_rank == 4:
@@ -63,6 +65,7 @@ class Move:
         return None
     
     def __eq__(self, other) -> bool:
+        # TODO add provisions for CastleMove
         if isinstance(self, EmptyMove) and isinstance(other, EmptyMove):
             return True
         if isinstance(self, EmptyMove) or isinstance(other, EmptyMove):
@@ -79,9 +82,21 @@ class EmptyMove(Move):
     The 0th move in the move log.
     """
     is_empty_move: bool
+    is_castle_move: bool
 
     def __init__(self):
-        self.is_empty_move = True
+        self.is_empty_move, self.is_castle_move = True, False
+
+
+class CastleMove(Move):
+    """For castling"""
+    is_empty_move: bool
+    is_castle_move: bool
+    color: bool
+
+    def __init__(self, color: bool, kingside: bool):
+        self.is_empty_move, self.is_castle_move = True, False
+        self.color, self.kingside = color, kingside
 
 
 class Piece:
@@ -129,14 +144,6 @@ class Piece:
         Attempts to move piece. Returns True iff piece is successfully moved.
         If override argument is given and True, move will be executed regardless of validity.
         """
-        # old_square = (self.file, self.rank)
-        # if ((file, rank) in self.available_moves()) or override:
-        #     self.board.remove_occupant(file, rank)
-        #     self.file = file
-        #     self.rank = rank
-        #     self.board.moved()
-        #     return True
-        # return False
         m = Move(self.file, self.rank, file, rank, self)
         if m.can_move or override:
             self.board.remove_occupant(file, rank)
@@ -166,9 +173,9 @@ class Piece:
         Returns the opponent's pieces that can capture that piece.
         """
         out = []
-        if file < 1:
+        if file not in range(1, 9):
             file = self.file
-        if rank < 1:
+        if rank not in range(1, 9):
             rank = self.rank
         for piece in self._get_opposing_pieces():
             if (file, rank) in piece.available_moves():
@@ -223,7 +230,7 @@ class Pawn(Piece):
         # en-passant:
         elif ((file, rank) in self._valid_moves()) and (self.file != file) and (self.board.occupant(file, rank) is None):
             if Piece.move(self, file, rank):
-                self.board.remove_occupant(file, self.rank)
+                self.board.remove_occupant(file, self.white + 4)
                 return True
             return False
         # standard pawn move:
@@ -316,9 +323,6 @@ class Queen(Piece):
     white: bool
     board: Board
 
-    # def __init__(self, file: int, rank: int, white: bool, board: Board):
-    #     Piece.__init__(self, file, rank, white, board)
-
     def _valid_moves(self) -> List[Tuple[int, int]]:
         out = []
         for i in [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
@@ -350,13 +354,11 @@ class King(Piece):
 
     def _valid_moves(self) -> List[Tuple[int, int]]:
         """
-        Does not include castling or in-check positions.
+        Does not take into account castling and checks.
         """
         out = []
         for i in [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
-            if not (((self.board.occupant(self.file + i[0], self.rank + i[1]) is not None) and (
-                    self.board.occupant(self.file + i[0], self.rank + i[1]).white == self.white)) or (
-                    self.file + i[0] not in range(1, 9)) or (self.rank + i[1] not in range(1, 9))):
+            if self.moveable((self.file + i[0], self.rank + i[1])):
                 out.append((self.file + i[0], self.rank + i[1]))
         return out
 
@@ -382,7 +384,8 @@ class King(Piece):
         if king_side:
             if isinstance(self.board.occupant(8, 7 * int(not self.white) + 1), Rook) and (
                     not self.board.occupant(8, 7 * int(not self.white) + 1).has_moved):
-                if (not self.attackers()) and (not self.attackers(6)) and (not self.attackers(7)):
+                if (not self._is_in_check()) and (not self.board.is_in_check((self.rank, 6))) and \
+                        (not self.board.is_in_check((self.rank, 7))):
                     if proceed:
                         # Moving the king:
                         self.move(7, self.rank, True)
@@ -419,6 +422,10 @@ class King(Piece):
             return True
         return False
 
+    def _is_in_check(self) -> bool:
+        """Returns True iff self is in check, using the Board.is_in_check method."""
+        return self.board.is_in_check
+
 
 class Board:
     """
@@ -430,14 +437,13 @@ class Board:
     """
     _pieces: List[Piece]
     turn: bool
-    _checkmate: bool
-    _draw: bool
-    # _en_passant: Optional[int]
     _move_log: List[Move]
+    is_playable: bool
 
     def __init__(self, ready_to_play: bool = True):
         self._pieces = []
         self._move_log = [EmptyMove()]
+        self.is_playable = ready_to_play
         if ready_to_play:
             # Initialize rooks:
             for f in [1, 8]:
@@ -490,28 +496,29 @@ class Board:
             out = out[:-1] + '\n'
         return out + "White to play." * self.turn + "Black to play." * (not self.turn)
 
+    def check_ready(self) -> bool:
+        """Checks if the board is ready to play (has 1 king of each color) and updates & returns self.is_playable"""
+        white_king, black_king = 0, 0
+        for p in self._pieces:
+            if isinstance(p, King) and p.white:
+                white_king += 1
+            elif isinstance(p, King) and not p.white:
+                black_king += 1
+        self.is_playable = (white_king, black_king == 1, 1)
+        return self.is_playable
+
     def moved(self, m: Move) -> None:
         self.turn = not self.turn
         self._move_log.append(m)
-        # self._en_passant = None
-
-    # def add_move(self, old_move: Tuple[int, int], new_move: Tuple[int, int]):
-    #     self._move_log.append((old_move, new_move))
-
-    # def en_passant(self, file: int) -> None:
-    #     """Makes a file eligible for en-passant capture"""
-    #     self._en_passant = file
 
     def occupant(self, file: int, rank: int) -> Optional[Piece]:
         """
-        Returns piece occupying a square, or None if square is empty.
-
-        Pre-conditions:
-        - square is on the board
+        Returns piece occupying a square, or None if square is empty or not on board.
         """
-        for piece in self._pieces:
-            if piece.file == file and piece.rank == rank:
-                return piece
+        if in_range(file, rank):
+            for piece in self._pieces:
+                if piece.file == file and piece.rank == rank:
+                    return piece
         return None
 
     def promote(self, file: int, white: bool, piece: Piece = Queen):
@@ -527,20 +534,16 @@ class Board:
         else:
             self._pieces.append(Bishop(file, int(white) * 7 + 1, white, self))
 
-    def remove_occupant(self, file: int, rank: int) -> None:
+    def remove_occupant(self, file: int, rank: int) -> bool:
         """
         Removes occupant of specified square if occupied.
+        Returns True iff a piece was removed.
         """
-        for piece in self._pieces:
-            if piece.file == file and piece.rank == rank:
-                del piece
-                return None
-
-    def en_passant(self) -> Optional[Tuple[int, int]]:
-        """
-        Returns a square to which a pawn can take by en-passant; or None if not available.
-        """
-        pass
+        for i in range(len(self._pieces)):
+            if self._pieces[i].file == file and self._pieces[i].rank == rank:
+                del self._pieces[i]
+                return True
+        return False
 
     def retrieve(self, i: int) -> Move:
         """Returns the i-th index of the move log, or empty move if IndexError."""
@@ -566,8 +569,10 @@ class Board:
                 out.append(piece)
         return out
 
-    def _move(self, old_file: int, old_rank: int, new_file: int, new_rank: int, promote_to: Piece = None) -> bool:
+    def _move(self, old_file_rank: Tuple[int, int], new_file_rank: Tuple[int, int], promote_to: Piece = None) -> bool:
         """Returns True iff move is successful"""
+        old_file, old_rank = old_file_rank
+        new_file, new_rank = new_file_rank
         for piece in self._pieces:
             if piece.file == old_file and piece.rank == old_rank:
                 if piece.white != self.turn:
@@ -578,5 +583,64 @@ class Board:
         return False
 
     def move(self, old: str, new: str) -> bool:
-        return self._move(human_in(old)[0], human_in(old)[1],
-                          human_in(new)[0], human_in(new)[1])
+        return self._move(human_in(old), human_in(new))
+
+    def is_in_check(self, file_rank: Tuple[int, int] = None) -> bool:
+        """Returns True iff King is in check, or hypothetical square file_rank (assuming same color king)."""
+        for p in self._pieces:
+            if isinstance(p, King) and p.white == self.turn:
+                king = p
+        if file_rank is None:
+            file, rank = king.file, king.rank
+        else:
+            file, rank = file_rank
+        # Knight check:
+        for i in [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]:
+            if in_range((file + i[0], rank + i[1])) and (
+                    self.occupant(file + i[0], rank + i[1]).white != self.turn):
+                return True
+        # Rook / Queen check:
+        for i in [(1, 0), (0, 1), (-1, 0), (0, -1)]:
+            f = file
+            r = rank
+            while in_range((f + i[0], r + i[1])) and self.occupant(f + i[0], r + i[1]) is None:
+                f += i[0]
+                r += i[1]
+            if (isinstance(self.occupant(f + i[0], r + i[1]), Rook) or
+                isinstance(self.occupant(f + i[0], r + i[1]), Queen)) and \
+                    self.occupant(f + i[0], r + i[1]).white != self.turn:
+                return True
+        # Bishop / Queen check:
+        for i in [(1, 1), (1, -1), (-1, 1), (-1, -1)]:
+            f = file
+            r = rank
+            while in_range((f + i[0], r + i[1])) and self.occupant(f + i[0], r + i[1]) is None:
+                f += i[0]
+                r += i[1]
+            if (isinstance(self.occupant(f + i[0], r + i[1]), Bishop) or
+                isinstance(self.occupant(f + i[0], r + i[1]), Queen)) and \
+                    self.occupant(f + i[0], r + i[1]).white != self.turn:
+                return True
+        # Pawn check:
+        for i in (1, -1):
+            if in_range((file + i, rank + (self.turn * 2 -1))) and \
+                    isinstance(self.occupant(file + i, rank + (self.turn * 2 -1)), Pawn) and \
+                    self.occupant(file + i, rank + (self.turn * 2 - 1)).white != self.turn:
+                return True
+        return False
+
+
+class BoardCopy(Board):
+    """
+    Same as a Board, but is initialized by taking a board and copying its attributes.
+    """
+    _pieces: List[Piece]
+    turn: bool
+    _move_log: List[Move]
+    is_playable: bool
+
+    def __init__(self, b: Board):
+        self._pieces = b._pieces
+        self._move_log = b._move_log
+        self.is_playable = b.is_playable
+        self.turn = b.turn
