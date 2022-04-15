@@ -11,16 +11,20 @@ def is_valid_notation(s: str) -> bool:
 INVALID_INPUT = "INVALID INPUT"
 INVALID_SQUARE = "INVALID SQUARE"
 INVALID_MOVE = "INVALID MOVE"
+NO_MOVES = "PIECE HAS NO MOVES AVAILABLE"
+
 MOVES_AVAILABLE = "Moves available:"
+ENTER_SQUARE_1 = "Enter square of piece to move: "
+ENTER_SQUARE_2 = "Enter square to move piece to: "
 
 b = Board()
 # INSERT PRESET MOVE FUNCTIONS HERE:
-en_passant_preset(b)
+# en_passant_preset(b)
 
 
 while True:
     print(b)
-    old = input('Enter square of piece to move: ')
+    old = input(ENTER_SQUARE_1)
     if old == 'quit' or old == 'exit':
         break
     elif not is_valid_notation(old):
@@ -32,9 +36,12 @@ while True:
         out = ''
         for i in b.occupant(human_in(old)[0], human_in(old)[1]).available_moves():
             out = out + human_out(i) + ', '
-        print(MOVES_AVAILABLE, out)
-        new = input('Enter square to move piece to: ')
-        if not is_valid_notation(new):
-            print(INVALID_INPUT)
-        elif not b.move(old, new):
-            print(INVALID_MOVE)
+        if not out:
+            print(NO_MOVES)
+        else:
+            print(MOVES_AVAILABLE, out)
+            new = input(ENTER_SQUARE_2)
+            if not is_valid_notation(new):
+                print(INVALID_INPUT)
+            elif not b.move(old, new):
+                print(INVALID_MOVE)
