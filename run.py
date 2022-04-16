@@ -1,4 +1,3 @@
-from main import *
 from preset_moves import *
 
 

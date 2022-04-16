@@ -42,8 +42,9 @@ class Move:
     can_move: bool
     is_empty_move: bool
     is_castle_move: bool
+    promote_to: Optional[object]
 
-    def __init__(self, old_file: int, old_rank: int, new_file: int, new_rank: int, piece: Piece):
+    def __init__(self, old_file: int, old_rank: int, new_file: int, new_rank: int, piece: Piece, promote_to: object = None):
         self.old_file = old_file
         self.old_rank = old_rank
         self.new_file = new_file
@@ -51,6 +52,8 @@ class Move:
         self.piece = piece
         self.can_move = (new_file, new_rank) in piece.available_moves()
         self.is_empty_move, self.is_castle_move = False, False
+        if isinstance(piece, Pawn) and old_rank == piece.white*5+2:
+            self.promote_to = promote_to
 
     def can_en_passant(self) -> Optional[int]:
         if self.is_empty_move or self.is_castle_move:
@@ -132,12 +135,14 @@ class Piece:
     rank: int
     white: bool
     board: Board
+    type: object
 
     def __init__(self, file: int, rank: int, white: bool, board: Board):
         self.file = file
         self.rank = rank
         self.white = white
         self.board = board
+        self.type = type(self)
 
     def _valid_moves(self) -> List[Tuple[int, int]]:
         """
@@ -146,6 +151,7 @@ class Piece:
         raise NotImplementedError
 
     def available_moves(self) -> List[Tuple[int, int]]:
+        # TODO special case for pawn promotion. (New method in Pawn class.)
         """
         Returns list of available moves for that piece (like dots in lichess).
         """
@@ -154,12 +160,29 @@ class Piece:
         else:
             out = []
             for move in self._valid_moves():
-                c = BoardCopy(self.board)
-                c.internal_move((self.file, self.rank), move)
-                c.turn = not c.turn
-                if not c.is_in_check():
+                if not self._will_be_in_check(move):
                     out.append(move)
             return out
+
+    def _will_be_in_check(self, new_file_rank: Tuple[int, int]) -> bool:
+        file, rank = new_file_rank
+        c = BoardCopy(self.board)
+        c.remove_occupant(file, rank)  # Removes any occupant of the new square
+        c.remove_occupant(self.file, self.rank)  # Removes self from old square
+        if type(self) == King:
+            c.add_piece(King(file, rank, self.white, c))  # Adds copy to new square
+        elif type(self) == Queen:
+            c.add_piece(Queen(file, rank, self.white, c))  # Adds copy to new square
+        elif type(self) == Bishop:
+            c.add_piece(Bishop(file, rank, self.white, c))  # Adds copy to new square
+        elif type(self) == Knight:
+            c.add_piece(Knight(file, rank, self.white, c))  # Adds copy to new square
+        elif type(self) == Rook:
+            c.add_piece(Rook(file, rank, self.white, c))  # Adds copy to new square
+        elif type(self) == Pawn:
+            # TODO May have to change this for pawn promotion
+            c.add_piece(Pawn(file, rank, self.white, c))  # Adds copy to new square
+        return c.is_in_check()
 
     def moveable(self, file_rank: Tuple[int, int]) -> bool:
         """
@@ -396,17 +419,17 @@ class King(Piece):
                 out.append((self.file + i[0], self.rank + i[1]))
         return out
 
-    def available_moves(self) -> List[Tuple[int, int]]:
-        """
-        Returns list of available moves (like dots in lichess), including castling.
-        """
-        out = []
-        for move in self._valid_moves():
-            if not self.attackers(move[0], move[1]):
-                out.append(move)
-        out += [(7, self.rank)] * self.castle(True, False)
-        out += [(3, self.rank)] * self.castle(False, False)
-        return out
+    # def available_moves(self) -> List[Tuple[int, int]]:
+    #     """
+    #     Returns list of available moves (like dots in lichess), including castling.
+    #     """
+    #     out = []
+    #     for move in self._valid_moves():
+    #         if not self.attackers(move[0], move[1]):
+    #             out.append(move)
+    #     out += [(7, self.rank)] * self.castle(True, False)
+    #     out += [(3, self.rank)] * self.castle(False, False)
+    #     return out
 
     def castle(self, king_side: bool, proceed: bool = True) -> bool:
         """
@@ -620,11 +643,15 @@ class Board:
     def move(self, old: str, new: str) -> bool:
         return self.internal_move(human_in(old), human_in(new))
 
+    def _return_king(self, color: bool) -> King:
+        """Returns the King of specified color"""
+        for p in self._pieces:
+            if (type(p) == King) and (p.white == color):
+                return p
+
     def is_in_check(self, file_rank: Tuple[int, int] = None) -> bool:
         """Returns True iff King is in check, or hypothetical square file_rank (assuming same color king)."""
-        for p in self._pieces:
-            if isinstance(p, King) and p.white == self.turn:
-                king = p
+        king = self._return_king(self.turn)
         if file_rank is None:
             file, rank = king.file, king.rank
         else:
@@ -665,23 +692,27 @@ class Board:
                 return True
         return False
 
+    def add_piece(self, piece) -> bool:
+        """Returns True if piece was added successfully; False if square was already occupied."""
+        if self.occupant(piece.file, piece.rank) is not None:
+            return False
+        else:
+            self._pieces.append(piece)
+            return True
+
 
 class BoardCopy(Board):
     """
     Same as a Board, but is initialized by taking a board and copying its attributes.
+    No Move log.
     """
     _pieces: List[Piece]
     turn: bool
-    _move_log: List[Move]
     is_playable: bool
 
     def __init__(self, b: Board):
-        self._pieces = b._pieces
-        self._move_log = b._move_log
+        self._pieces = []
+        for piece in b._pieces:
+            self._pieces.append(type(piece)(piece.file, piece.rank, piece.white, self))
         self.is_playable = b.is_playable
         self.turn = b.turn
-
-    def internal_move(self, old_file_rank: Tuple[int, int], new_file_rank: Tuple[int, int], promote_to: Piece = None) -> bool:
-        piece = self.occupant(old_file_rank[0], old_file_rank[1])
-        m = ForcedMove((piece.file, piece.rank), new_file_rank, piece)
-        self._move_log.append(m)
