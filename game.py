@@ -38,25 +38,25 @@ class ChessGame:
 
         # a function defined for convenience that we use to set up the
         # _icon_map below.
-        def image_loader(x: str) -> pygame.surface:
+        def load_image(x: str) -> pygame.surface:
             return make_image(x, self.square_size, self.square_size)
 
-        self._light_square = image_loader(LIGHT_SQUARE)
-        self._dark_square = image_loader(DARK_SQUARE)
+        self._light_square = load_image(LIGHT_SQUARE)
+        self._dark_square = load_image(DARK_SQUARE)
 
         self._icon_map = {
-            (main.King, True): image_loader('icons/white_king.png'),
-            (main.Queen, True): image_loader('icons/white_queen.png'),
-            (main.Rook, True): image_loader('icons/white_rook.png'),
-            (main.Bishop, True): image_loader('icons/white_bishop.png'),
-            (main.Knight, True): image_loader('icons/white_knight.png'),
-            (main.Pawn, True): image_loader('icons/white_pawn.png'),
-            (main.King, False): image_loader('icons/black_king.png'),
-            (main.Queen, False): image_loader('icons/black_queen.png'),
-            (main.Rook, False): image_loader('icons/black_rook.png'),
-            (main.Bishop, False): image_loader('icons/black_bishop.png'),
-            (main.Knight, False): image_loader('icons/black_knight.png'),
-            (main.Pawn, False): image_loader('icons/black_pawn.png'),
+            (main.King, True): load_image('icons/white_king.png'),
+            (main.Queen, True): load_image('icons/white_queen.png'),
+            (main.Rook, True): load_image('icons/white_rook.png'),
+            (main.Bishop, True): load_image('icons/white_bishop.png'),
+            (main.Knight, True): load_image('icons/white_knight.png'),
+            (main.Pawn, True): load_image('icons/white_pawn.png'),
+            (main.King, False): load_image('icons/black_king.png'),
+            (main.Queen, False): load_image('icons/black_queen.png'),
+            (main.Rook, False): load_image('icons/black_rook.png'),
+            (main.Bishop, False): load_image('icons/black_bishop.png'),
+            (main.Knight, False): load_image('icons/black_knight.png'),
+            (main.Pawn, False): load_image('icons/black_pawn.png'),
         }
 
     def draw(self) -> None:
