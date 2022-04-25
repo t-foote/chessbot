@@ -155,14 +155,14 @@ class Piece:
         """
         Returns list of available moves for that piece (like dots in lichess).
         """
-        if not self.board.is_in_check():
-            return self._valid_moves()
-        else:
-            out = []
-            for move in self._valid_moves():
-                if not self._will_be_in_check(move):
-                    out.append(move)
-            return out
+        # if not self._is_in_check():
+        #     return self._valid_moves()
+        # else:
+        out = []
+        for move in self._valid_moves():
+            if not self._will_be_in_check(move):
+                out.append(move)
+        return out
 
     def _will_be_in_check(self, new_file_rank: Tuple[int, int]) -> bool:
         file, rank = new_file_rank
@@ -441,8 +441,8 @@ class King(Piece):
         if king_side:
             if isinstance(self.board.occupant(8, 7 * int(not self.white) + 1), Rook) and (
                     not self.board.occupant(8, 7 * int(not self.white) + 1).has_moved):
-                if (not self._is_in_check()) and (not self.board.is_in_check((self.rank, 6))) and \
-                        (not self.board.is_in_check((self.rank, 7))):
+                if (not self._is_in_check()) and (not self._is_in_check((self.rank, 6))) and \
+                        (not self._is_in_check((self.rank, 7))):
                     if proceed:
                         # Moving the king:
                         self.move(7, self.rank, True)
@@ -474,7 +474,7 @@ class King(Piece):
         Pre-conditions:
         - file in range(1, 9) and rank in range(1, 9)
         """
-        if (not self.attackers(file, rank)) and Piece.move(self, file, rank, override):
+        if Piece.move(self, file, rank, override):
             self.has_moved = True
             return True
         return False
@@ -502,6 +502,9 @@ class Board:
         self._move_log = [EmptyMove()]
         self.is_playable = ready_to_play
         if ready_to_play:
+            # Initialize kings:
+            for r in [1, 8]:
+                self._pieces.append(King(5, r, r == 1, self))
             # Initialize rooks:
             for f in [1, 8]:
                 for r in [1, 8]:
@@ -517,9 +520,6 @@ class Board:
             # Initialize queens:
             for r in [1, 8]:
                 self._pieces.append(Queen(4, r, r == 1, self))
-            # Initialize kings:
-            for r in [1, 8]:
-                self._pieces.append(King(5, r, r == 1, self))
             # Initialize pawns:
             for f in range(1, 9):
                 for r in [2, 7]:
@@ -551,10 +551,68 @@ class Board:
                     out += ' '
                 out += ' '
             out = out[:-1] + '\n'
+        if not self.check_if_playable():
+            return out + "BOARD NOT PLAYABLE."
+        if self.is_checkmate():
+            return out + f"CHECKMATE! {'BLACK'*self.turn + 'WHITE'*(not self.turn)} WINS!"
+        if self.is_stalemate():
+            return out + "DRAW BY STALEMATE."
+        if self.is_repetition():
+            return out + "DRAW BY 3-FOLD REPETITION."
+        if self.is_insufficient():
+            return out + "DRAW BY INSUFFICIENT MATERIAL."
         return out + "White to play." * self.turn + "Black to play." * (not self.turn) + " CHECK." * (
                 self.is_in_check())
 
-    def check_ready(self) -> bool:
+    def is_checkmate(self) -> bool:
+        """Returns True iff checkmate."""
+        if not self.is_in_check():
+            return False
+        for p in self.turn_pieces():
+            if p.available_moves():
+                return False
+        return True
+
+    def is_stalemate(self) -> bool:
+        """Returns True iff stalemate."""
+        if self.is_in_check():
+            return False
+        for p in self.turn_pieces():
+            if p.available_moves():
+                return False
+        return True
+
+    def is_repetition(self) -> bool:
+        """Returns True iff threefold repetition."""
+        # TODO Implement this.
+        pass
+
+    def is_insufficient(self) -> bool:
+        """Returns True iff draw by insufficient material."""
+        if len(self._pieces) >= 5:
+            return False
+        # 2 Kings:
+        if len(self._pieces) == 2:
+            return True
+        # 2 Kings + a Bishop or Knight:
+        if len(self._pieces) == 3:
+            for p in self._pieces:
+                if isinstance(p, Knight) or isinstance(p, Bishop):
+                    return True
+        # 2 Bishops of different colors on the same colored square:
+        if len(self._pieces) == 4:
+            bishops = []
+            for p in self._pieces:
+                if isinstance(p, Bishop):
+                    bishops.append(p)
+                elif (not isinstance(p, King)) or (not isinstance(p, Bishop)):
+                    return False
+            if bishops[0].white != bishops[1].white and \
+                    (bishops[0].file + bishops[0].rank) % 2 == (bishops[1].file + bishops[1].rank) % 2:
+                return True
+        return False
+
+    def check_if_playable(self) -> bool:
         """Checks if the board is ready to play (has 1 king of each color) and updates & returns self.is_playable"""
         white_king, black_king = 0, 0
         for p in self._pieces:
@@ -562,7 +620,7 @@ class Board:
                 white_king += 1
             elif isinstance(p, King) and not p.white:
                 black_king += 1
-        self.is_playable = (white_king, black_king == 1, 1)
+        self.is_playable = white_king == 1 and black_king == 1
         return self.is_playable
 
     def moved(self, m: Move) -> None:
@@ -610,37 +668,47 @@ class Board:
         except IndexError:
             return self._move_log[0]
 
-    def all_pieces(self):
+    def all_pieces(self) -> List[Piece]:
         return self._pieces
 
-    def white_pieces(self):
+    def white_pieces(self) -> List[Piece]:
         out = []
         for piece in self._pieces:
             if piece.white:
                 out.append(piece)
         return out
 
-    def black_pieces(self):
+    def black_pieces(self) -> List[Piece]:
         out = []
         for piece in self._pieces:
             if not piece.white:
                 out.append(piece)
         return out
 
-    def internal_move(self, old_file_rank: Tuple[int, int], new_file_rank: Tuple[int, int], promote_to: Piece = None) -> bool:
-        """Returns True iff move is successful"""
+    def turn_pieces(self) -> List[Piece]:
+        """Returns black_pieces or white_pieces depending on whose turn it is."""
+        if self.turn:
+            return self.white_pieces()
+        else:
+            return self.black_pieces()
+
+    def internal_move(
+            self, old_file_rank: Tuple[int, int], new_file_rank: Tuple[int, int], promote_to: Piece = None) -> bool:
+        """Returns True iff move is successful. Same as Board.move except takes internal coordinates Tuple[int, int]"""
         old_file, old_rank = old_file_rank
         new_file, new_rank = new_file_rank
         for piece in self._pieces:
             if piece.file == old_file and piece.rank == old_rank:
                 if piece.white != self.turn:
                     return False
+                # TODO Pawn promo stuff; review:
                 if isinstance(piece, Pawn) and (int(piece.white) * 5 + 2):
                     return piece.move(new_file, new_rank, promote_to)
                 return piece.move(new_file, new_rank)
         return False
 
     def move(self, old: str, new: str) -> bool:
+        """Returns True iff move is successful. Same as Board.move except takes human chess coordinates."""
         return self.internal_move(human_in(old), human_in(new))
 
     def _return_king(self, color: bool) -> King:

@@ -17,12 +17,15 @@ ENTER_SQUARE_1 = "Enter square of piece to move: "
 ENTER_SQUARE_2 = "Enter square to move piece to: "
 
 b = Board()
-# INSERT PRESET MOVE FUNCTIONS HERE:
+"""INSERT PRESET MOVE FUNCTIONS HERE:"""
 # en_passant_preset(b)
+# check_check_preset(b)
 
 
 while True:
     print(b)
+    if b.is_checkmate() or b.is_stalemate() or b.is_insufficient():
+        break
     old = input(ENTER_SQUARE_1)
     if old == 'quit' or old == 'exit':
         break
