@@ -155,9 +155,8 @@ class Piece:
         """
         Returns list of available moves for that piece (like dots in lichess).
         """
-        # if not self._is_in_check():
-        #     return self._valid_moves()
-        # else:
+        if self.board.turn != self.white:
+            return []  # TODO This might mess some stuff up idk
         out = []
         for move in self._valid_moves():
             if not self._will_be_in_check(move):
@@ -169,19 +168,7 @@ class Piece:
         c = BoardCopy(self.board)
         c.remove_occupant(file, rank)  # Removes any occupant of the new square
         c.remove_occupant(self.file, self.rank)  # Removes self from old square
-        if type(self) == King:
-            c.add_piece(King(file, rank, self.white, c))  # Adds copy to new square
-        elif type(self) == Queen:
-            c.add_piece(Queen(file, rank, self.white, c))  # Adds copy to new square
-        elif type(self) == Bishop:
-            c.add_piece(Bishop(file, rank, self.white, c))  # Adds copy to new square
-        elif type(self) == Knight:
-            c.add_piece(Knight(file, rank, self.white, c))  # Adds copy to new square
-        elif type(self) == Rook:
-            c.add_piece(Rook(file, rank, self.white, c))  # Adds copy to new square
-        elif type(self) == Pawn:
-            # TODO May have to change this for pawn promotion
-            c.add_piece(Pawn(file, rank, self.white, c))  # Adds copy to new square
+        c.add_piece(type(self)(file, rank, self.white, c))
         return c.is_in_check()
 
     def moveable(self, file_rank: Tuple[int, int]) -> bool:
@@ -278,6 +265,7 @@ class Pawn(Piece):
         Pre-conditions:
         if (self.white and self.rank == 7) or (not self.white and self.rank == 2), promote_to is not None
         """
+        # TODO Re-implement promotion stuff:
         if (self.white and self.rank == 7) or (not self.white and self.rank == 2):
             # Promotion:
             if Piece.move(self, file, rank):
@@ -418,18 +406,6 @@ class King(Piece):
             if self.moveable((self.file + i[0], self.rank + i[1])):
                 out.append((self.file + i[0], self.rank + i[1]))
         return out
-
-    # def available_moves(self) -> List[Tuple[int, int]]:
-    #     """
-    #     Returns list of available moves (like dots in lichess), including castling.
-    #     """
-    #     out = []
-    #     for move in self._valid_moves():
-    #         if not self.attackers(move[0], move[1]):
-    #             out.append(move)
-    #     out += [(7, self.rank)] * self.castle(True, False)
-    #     out += [(3, self.rank)] * self.castle(False, False)
-    #     return out
 
     def castle(self, king_side: bool, proceed: bool = True) -> bool:
         """
@@ -637,6 +613,16 @@ class Board:
                     return piece
         return None
 
+    def occupantt(self, file_rank: Tuple[int, int]) -> Optional[Piece]:
+        """
+        Same as Board.occupant() except takes a file_rank tuple instead of 2 arguments.
+        """
+        if in_range(file_rank):
+            for piece in self._pieces:
+                if piece.file == file_rank[0] and piece.rank == file_rank[1]:
+                    return piece
+        return None
+
     def promote(self, file: int, white: bool, piece: Piece = Queen):
         """Takes a pawn already on the last rank and replaces it with the specified piece,
         or queen if not specified"""
@@ -711,7 +697,7 @@ class Board:
         """Returns True iff move is successful. Same as Board.move except takes human chess coordinates."""
         return self.internal_move(human_in(old), human_in(new))
 
-    def _return_king(self, color: bool) -> King:
+    def return_king(self, color: bool) -> King:
         """Returns the King of specified color"""
         for p in self._pieces:
             if (type(p) == King) and (p.white == color):
@@ -719,7 +705,7 @@ class Board:
 
     def is_in_check(self, file_rank: Tuple[int, int] = None) -> bool:
         """Returns True iff King is in check, or hypothetical square file_rank (assuming same color king)."""
-        king = self._return_king(self.turn)
+        king = self.return_king(self.turn)
         if file_rank is None:
             file, rank = king.file, king.rank
         else:

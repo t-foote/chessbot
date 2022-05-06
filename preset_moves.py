@@ -14,3 +14,14 @@ def check_check_preset(b: Board) -> None:
     b.move('d1', 'h5')
     b.move('d7', 'd5')
     b.move('h5', 'f7')
+
+
+def debug_001(b: Board) -> None:
+    b.move('b2', 'b3')
+    b.move('e7', 'e5')
+    b.move('c1', 'b2')
+    b.move('d7', 'd5')
+    b.move('b2', 'e5')
+    b.move('a2', 'a3')
+    b.move('e5', 'g7')
+    b.move('c7', 'c6')
