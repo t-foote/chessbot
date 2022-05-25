@@ -20,7 +20,7 @@ b = Board()
 """INSERT PRESET MOVE FUNCTIONS HERE:"""
 # en_passant_preset(b)
 # check_check_preset(b)
-
+# debug_001(b)
 
 while True:
     print(b)

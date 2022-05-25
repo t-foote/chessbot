@@ -1,6 +1,7 @@
 import pygame, sys
 from main import *
 from typing import Dict, List, Optional, Tuple
+from bot import *  # Also imports everything from main
 from random import randint
 from preset_moves import debug_001
 
@@ -98,6 +99,7 @@ class ChessGame:
                     if self.board.occupant(x + 1, y*(-1) + 8) is not None:
                         c = type(self.board.occupant(x + 1, y*(-1) + 8)), self.board.occupant(x + 1, y*(-1) + 8).white
                         self._screen.blit(self._icon_map[c], rectangle)
+
                 else:
                     self.grid[(x*(-1) + 8, y + 1)] = rectangle
                     if (x + y) % 2 == 1:
@@ -109,22 +111,25 @@ class ChessGame:
                     if self.board.occupant(x*(-1) + 8, y + 1) is not None:
                         c = type(self.board.occupant(x*(-1) + 8, y + 1)), self.board.occupant(x*(-1) + 8, y + 1).white
                         self._screen.blit(self._icon_map[c], rectangle)
-                if self.board.is_in_check():
-                    x = self.board.return_king(self.board.turn).file - 1
-                    if side_up:
-                        y = self.board.return_king(self.board.turn).rank * (-1) + 8
-                    else:
-                        y = self.board.return_king(self.board.turn).rank - 1
-                    self._screen.blit(self._check, (x * self.square_size,
-                                                    y * self.square_size))
+
+        if self.board.is_in_check():
+
+            if side_up:
+                y = self.board.return_king(self.board.turn).rank * (-1) + 8
+                x = self.board.return_king(self.board.turn).file - 1
+            else:
+                x = self.board.return_king(self.board.turn).file * (-1) + 8
+                y = self.board.return_king(self.board.turn).rank - 1
+            self._screen.blit(self._check, (x * self.square_size,
+                                            y * self.square_size))
         # Update the screen.
         pygame.display.flip()
 
     def draw_click(self, file_rank: Tuple[int, int], side_up: bool) -> None:
         """Draws the board after a piece has been clicked."""
-        if self.board.occupantt(file_rank) is None:
+        if self.occupant(file_rank) is None:
             return None
-        for square in self.board.occupant(file_rank[0], file_rank[1]).available_moves():
+        for square in self.occupant(file_rank).available_moves():
             if side_up:
                 x, y = square[0] - 1, square[1]*(-1) + 8
             else:
@@ -139,11 +144,14 @@ class ChessGame:
         pygame.display.flip()
 
 
-def program(c: ChessGame, player_color: bool = None) -> None:
-    """If player_color is not None, it is assumed cpu is the other player."""
-    c.draw(player_color)
+def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
+    """pov is the color of the pieces on the bottom of the screen."""
+    pov = user_color_or_pov  # Just to keep things clean
+    c.draw(pov)
     running = True
     while running:
+        # Bot:
+        # TODO: Debug the need for clicking in order for bot to work
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
@@ -151,17 +159,16 @@ def program(c: ChessGame, player_color: bool = None) -> None:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # print(c.board)
 
-                # Helper function that assigns piece clicked:
+                # Helper function that assigns a coordinate value to c.piece_clicked:
                 def assign_piece_clicked(c: ChessGame) -> None:
                     for square in c.grid:
                         if c.grid[square].collidepoint(event.pos):
                             if c.occupant(square) is not None and c.occupant(square).available_moves():
                                 c.piece_clicked = square
-                                print(c.occupant(c.piece_clicked)._valid_moves())
-                                c.draw(player_color)
-                                c.draw_click(square, player_color)
+                                c.draw(pov)
+                                c.draw_click(square, pov)
                             else:
-                                c.draw(player_color)
+                                c.draw(pov)
 
                 if c.piece_clicked is None:
                     assign_piece_clicked(c)
@@ -170,21 +177,29 @@ def program(c: ChessGame, player_color: bool = None) -> None:
                         if c.grid[square].collidepoint(event.pos):
                             if c.occupant(c.piece_clicked) is not None and \
                                     square in c.occupant(c.piece_clicked).available_moves():
-                                c.board.internal_move(c.piece_clicked, square)
-                                c.draw(player_color)
+                                c.board.move(c.piece_clicked, square)
+                                c.draw(pov)
+                                if c.board.is_checkmate():
+                                    running = False
+                                if play_against_bot:
+                                    bot(c.board)
+                                    c.draw\
+                                        (pov)
                             else:
                                 assign_piece_clicked(c)
-                try:
-                    print("Valid moves:", c.occupant(c.piece_clicked)._valid_moves())
-                except AttributeError:
-                    print("Valid moves:", None)
+                # try:
+                #     print("Valid moves:", c.occupant(c.piece_clicked)._valid_moves())
+                # except AttributeError:
+                #     print("Valid moves:", None)
                 # print(c.board)
     pygame.quit()
     sys.exit()
 
+# TODO: Debug program crashing after checkmate
+
 
 if __name__ == '__main__':
     b = Board()
-    debug_001(b)
+    # debug_001(b)
     c = ChessGame(100, b)
-    program(c, True)
+    run(c, True, True)
