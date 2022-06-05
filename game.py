@@ -103,11 +103,9 @@ class ChessGame:
                 else:
                     self.grid[(x*(-1) + 8, y + 1)] = rectangle
                     if (x + y) % 2 == 1:
-                        self._screen.blit(self._light_square, (x * self.square_size,
-                                                               y * self.square_size))
+                        self._screen.blit(self._light_square, (x * self.square_size, y * self.square_size))
                     else:
-                        self._screen.blit(self._dark_square, (x * self.square_size,
-                                                              y * self.square_size))
+                        self._screen.blit(self._dark_square, (x * self.square_size, y * self.square_size))
                     if self.board.occupant(x*(-1) + 8, y + 1) is not None:
                         c = type(self.board.occupant(x*(-1) + 8, y + 1)), self.board.occupant(x*(-1) + 8, y + 1).white
                         self._screen.blit(self._icon_map[c], rectangle)
@@ -120,8 +118,7 @@ class ChessGame:
             else:
                 x = self.board.return_king(self.board.turn).file * (-1) + 8
                 y = self.board.return_king(self.board.turn).rank - 1
-            self._screen.blit(self._check, (x * self.square_size,
-                                            y * self.square_size))
+            self._screen.blit(self._check, (x * self.square_size, y * self.square_size))
         # Update the screen.
         pygame.display.flip()
 
@@ -135,13 +132,15 @@ class ChessGame:
             else:
                 x, y = square[0]*(-1) + 8, square[1] - 1
             if self.board.occupantt(square) is None:
-                self._screen.blit(self._move_to, (x * self.square_size,
-                                                  y * self.square_size))
+                self._screen.blit(self._move_to, (x * self.square_size, y * self.square_size))
             else:
-                self._screen.blit(self._capture, (x * self.square_size,
-                                                  y * self.square_size))
+                self._screen.blit(self._capture, (x * self.square_size, y * self.square_size))
         # Update the screen.
         pygame.display.flip()
+
+    def in_progress(self) -> bool:
+        """Returns True iff the game is not over"""
+        return not (self.board.is_checkmate() or self.board.is_stalemate() or self.board.is_insufficient())
 
 
 def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
@@ -149,12 +148,13 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
     pov = user_color_or_pov  # Just to keep things clean
     c.draw(pov)
     running = True
-    while running:
+    game_in_play = True
+    while running and c.in_progress():
         # Bot:
-        # TODO: Debug the need for clicking in order for bot to work
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
+
             # If event type is a click:
             if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 # print(c.board)
@@ -179,21 +179,14 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
                                     square in c.occupant(c.piece_clicked).available_moves():
                                 c.board.move(c.piece_clicked, square)
                                 c.draw(pov)
-                                if c.board.is_checkmate():
-                                    running = False
-                                if play_against_bot:
+                                if c.in_progress() and play_against_bot:
                                     bot(c.board)
-                                    c.draw\
-                                        (pov)
+                                    c.draw(pov)
                             else:
                                 assign_piece_clicked(c)
-                # try:
-                #     print("Valid moves:", c.occupant(c.piece_clicked)._valid_moves())
-                # except AttributeError:
-                #     print("Valid moves:", None)
-                # print(c.board)
-    pygame.quit()
-    sys.exit()
+    if not running:
+        pygame.quit()
+        sys.exit()
 
 # TODO: Debug program crashing after checkmate
 
@@ -201,5 +194,5 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
 if __name__ == '__main__':
     b = Board()
     # debug_001(b)
-    c = ChessGame(100, b)
+    c = ChessGame(75, b)
     run(c, True, True)

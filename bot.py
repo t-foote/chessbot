@@ -20,28 +20,26 @@ def points(b: Board, color: bool = None) -> int:
 
 
 def points_diff(b: Board) -> int:
-    return points(b, b.turn) - points(b, not b.turn)
+    return points(b, not b.turn) - points(b, b.turn)
 
 
 def _alg001(b: Board) -> Tuple[Piece, Tuple[int, int]]:
     # ALGORITHM 001: POINT DIFFERENTIAL:
 
-    best_piece = None
-    best_spread = -float("inf")  # The highest difference b/w player & opponent's points
-    best_move = (0, 0)
+    potential = dict()  # Key: point value. Value: (piece, move: tuple)
 
     for piece in b.pieces(b.turn):
+        print(piece)
         for move in piece.available_moves():
+            print(f"    {move}")
             copy = BoardCopy(b)
             copy.move(piece, move)
             if copy.is_checkmate():
                 return piece, move
-            if points_diff(copy) > best_spread:
-                best_piece = piece
-                best_move = move
-                best_spread = points_diff(copy)
+            potential[points_diff(copy)] = (piece, move)
 
-    return best_piece, best_move
+    print(potential)
+    return potential[max(potential)]
 
 
 def bot(b: Board) -> None:

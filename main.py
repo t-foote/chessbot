@@ -144,6 +144,9 @@ class Piece:
         self.board = board
         self.type = type(self)
 
+    def __str__(self) -> str:
+        raise NotImplementedError
+
     def _valid_moves(self) -> List[Tuple[int, int]]:
         """
         Returns list of valid moves for that piece.
@@ -239,10 +242,17 @@ class Pawn(Piece):
     white: bool
     board: Board
 
+    def __str__(self):
+        if self.white:
+            return f"White pawn at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black pawn at {human_out((self.file, self.rank))}"
+
     def _valid_moves(self) -> List[Tuple[int, int]]:
         out = []
         # Moving forward 1 square:
-        if self.board.occupant(self.file, self.rank + (int(self.white) * 2 - 1)) is None:
+        if self.board.occupant(self.file, self.rank + (int(self.white) * 2 - 1)) is None and \
+                in_range((self.file, self.rank + (int(self.white) * 2 - 1))):
             out.append((self.file, self.rank + (int(self.white) * 2 - 1)))
             # Moving forward 2 squares:
             if (self.white and self.rank == 2) or (not self.white and self.rank == 7):
@@ -252,7 +262,8 @@ class Pawn(Piece):
         for i in (1, -1):
             if (in_range((self.file + i, self.rank + (self.white * 2 - 1))) and
                     (self.board.occupant(self.file + i, self.rank + (self.white * 2 - 1)) is not None) and
-                    (self.board.occupant(self.file + i, self.rank + (self.white * 2 - 1)).white != self.white)):
+                    (self.board.occupant(self.file + i, self.rank + (self.white * 2 - 1)).white != self.white) and
+                    in_range((self.file + i, self.rank + (self.white * 2 - 1)))):
                 out.append((self.file + i, self.rank + (self.white * 2 - 1)))
         # En-passant:
         if (self.board.retrieve(-1).can_en_passant() == self.file + 1) and (self.rank == self.white + 4):
@@ -271,10 +282,9 @@ class Pawn(Piece):
         # TODO Re-implement promotion stuff:
         if (self.white and self.rank == 7) or (not self.white and self.rank == 2):
             # Promotion:
-            promote_to = Queen
             if Piece.move(self, file, rank):
-                self.board.add_piece(promote_to(file, rank, self.white, self.board))
-                self.board.remove(self)
+                print(True)
+                self.board.promote(self)
         # TODO: Look up how to use input() for both run.py and game.py
         # For now, all promotions are to a Queen.
                 return True
@@ -299,6 +309,12 @@ class Knight(Piece):
     white: bool
     board: Board
 
+    def __str__(self):
+        if self.white:
+            return f"White knight at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black knight at {human_out((self.file, self.rank))}"
+
     def _valid_moves(self) -> List[Tuple[int, int]]:
         out = []
         for i in [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]:
@@ -315,6 +331,12 @@ class Bishop(Piece):
     rank: int
     white: bool
     board: Board
+
+    def __str__(self):
+        if self.white:
+            return f"White bishop at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black bishop at {human_out((self.file, self.rank))}"
 
     def _valid_moves(self) -> List[Tuple[int, int]]:
         out = []
@@ -340,6 +362,12 @@ class Rook(Piece):
     white: bool
     board: Board
     has_moved: bool
+
+    def __str__(self):
+        if self.white:
+            return f"White rook at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black rook at {human_out((self.file, self.rank))}"
 
     def __init__(self, file: int, rank: int, white: bool, board: Board):
         Piece.__init__(self, file, rank, white, board)
@@ -375,6 +403,12 @@ class Queen(Piece):
     white: bool
     board: Board
 
+    def __str__(self):
+        if self.white:
+            return f"White queen at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black queen at {human_out((self.file, self.rank))}"
+
     def _valid_moves(self) -> List[Tuple[int, int]]:
         out = []
         for i in [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
@@ -399,6 +433,12 @@ class King(Piece):
     white: bool
     board: Board
     has_moved: bool
+
+    def __str__(self):
+        if self.white:
+            return f"White king at {human_out((self.file, self.rank))}"
+        else:
+            return f"Black king at {human_out((self.file, self.rank))}"
 
     def __init__(self, file: int, rank: int, white: bool, board: Board):
         Piece.__init__(self, file, rank, white, board)
@@ -610,6 +650,12 @@ class Board:
         self.is_playable = white_king == 1 and black_king == 1
         return self.is_playable
 
+    def promote(self, piece_to_remove: Pawn, promote_to=Queen) -> None:
+        """Removes a pawn on the last rank and replaces it with a piece"""
+        file, rank, color = piece_to_remove.file, piece_to_remove.rank, piece_to_remove.white
+        del piece_to_remove
+        print(self.add_piece(promote_to(file, rank, color, self), True))
+
     def moved(self, m: Move) -> None:
         self.turn = not self.turn
         self._move_log.append(m)
@@ -634,18 +680,18 @@ class Board:
                     return piece
         return None
 
-    def promote(self, file: int, white: bool, piece: Piece = Queen):
-        """Takes a pawn already on the last rank and replaces it with the specified piece,
-        or queen if not specified"""
-        self.remove_occupant(file, int(white)*7+1)
-        if piece == Queen:
-            self._pieces.append(Queen(file, int(white) * 7 + 1, white, self))
-        elif piece == Knight:
-            self._pieces.append(Knight(file, int(white) * 7 + 1, white, self))
-        elif piece == Rook:
-            self._pieces.append(Rook(file, int(white) * 7 + 1, white, self))
-        else:
-            self._pieces.append(Bishop(file, int(white) * 7 + 1, white, self))
+    # def promote(self, file: int, white: bool, piece: Piece = Queen):
+    #     """Takes a pawn already on the last rank and replaces it with the specified piece,
+    #     or queen if not specified"""
+    #     self.remove_occupant(file, int(white)*7+1)
+    #     if piece == Queen:
+    #         self._pieces.append(Queen(file, int(white) * 7 + 1, white, self))
+    #     elif piece == Knight:
+    #         self._pieces.append(Knight(file, int(white) * 7 + 1, white, self))
+    #     elif piece == Rook:
+    #         self._pieces.append(Rook(file, int(white) * 7 + 1, white, self))
+    #     else:
+    #         self._pieces.append(Bishop(file, int(white) * 7 + 1, white, self))
 
     def remove_occupant(self, file: int, rank: int) -> bool:
         """
@@ -785,11 +831,16 @@ class Board:
                     isinstance(self.occupant(file + i, rank + (color * 2 -1)), Pawn) and \
                     self.occupant(file + i, rank + (color * 2 - 1)).white != color:
                 return True
+        # King check:
+        for i in [(1, 0), (0, 1), (-1, 0), (0, -1), (1, 1), (1, -1), (-1, 1), (-1, -1)]:
+            if isinstance(self.occupant(file + i[0], rank + i[1]), King):
+                return True
+        # No checks found:
         return False
 
-    def add_piece(self, piece) -> bool:
+    def add_piece(self, piece, force: bool = False) -> bool:
         """Returns True if piece was added successfully; False if square was already occupied."""
-        if self.occupant(piece.file, piece.rank) is not None:
+        if not (self.occupant(piece.file, piece.rank) is None or force):
             return False
         else:
             self._pieces.append(piece)
