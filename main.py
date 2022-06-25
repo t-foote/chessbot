@@ -1,10 +1,5 @@
 from typing import Dict, Tuple, List, Optional, Union
 
-"""
-_valid_moves vs. available_moves:
-    - available_moves takes into account check. 
-"""
-
 
 def human_in(s: str) -> Tuple[int, int]:
     letters = {'a': 1, 'b': 2, 'c': 3, 'd': 4, 'e': 5, 'f': 6, 'g': 7, 'h': 8}

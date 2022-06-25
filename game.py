@@ -2,8 +2,7 @@ import pygame, sys
 from main import *
 from typing import Dict, List, Optional, Tuple
 from bot import *  # Also imports everything from main
-from random import randint
-from preset_moves import debug_001
+
 
 pygame.init()
 
