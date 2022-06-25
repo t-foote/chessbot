@@ -23,10 +23,25 @@ def points_diff(b: Board) -> int:
     return points(b, not b.turn) - points(b, b.turn)
 
 
-def _alg001(b: Board) -> Tuple[Piece, Tuple[int, int]]:
+class PotentialMove:
+    piece: Piece
+    move: Tuple[int, int]
+    point_diff: int
+
+    def __init__(self, piece, move, point_diff=None):
+        self.piece = piece
+        self.move = move
+        self.point_diff = point_diff
+
+    def __lt__(self, other) -> bool:
+        """Compares point differentials"""
+        return self.point_diff < other.point_diff
+
+
+def _alg001(b: Board) -> PotentialMove:
     # ALGORITHM 001: POINT DIFFERENTIAL:
 
-    potential = dict()  # Key: point value. Value: (piece, move: tuple)
+    potentials = []  # Value: point value. Key: (piece, move: tuple)
 
     for piece in b.pieces(b.turn):
         print(piece)
@@ -35,17 +50,17 @@ def _alg001(b: Board) -> Tuple[Piece, Tuple[int, int]]:
             copy = BoardCopy(b)
             copy.move(piece, move)
             if copy.is_checkmate():
-                return piece, move
-            potential[points_diff(copy)] = (piece, move)
+                return PotentialMove(piece, move)
+            potentials.append(PotentialMove(piece, move, points_diff(copy)))
 
-    print(potential)
-    return potential[max(potential)]
+    print(potentials)
+    return max(potentials)
 
 
 def bot(b: Board) -> None:
     """This is the function where the bot makes the move. Nothing is returned; rather, the board is taken as
     an argument and the bot makes its move on that board."""
 
-    b.move(_alg001(b)[0], _alg001(b)[1])
+    b.move(_alg001(b).move[0], _alg001(b).move[1])
 
 
