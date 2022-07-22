@@ -1,7 +1,7 @@
 import pygame, sys
 from main import *
 from typing import Dict, List, Optional, Tuple
-from bot import *  # Also imports everything from main
+from minimax import *
 
 
 pygame.init()
@@ -148,7 +148,7 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
     c.draw(pov)
     running = True
     game_in_play = True
-    while running and c.in_progress():
+    while running:
         # Bot:
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -163,6 +163,7 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
                     for square in c.grid:
                         if c.grid[square].collidepoint(event.pos):
                             if c.occupant(square) is not None and c.occupant(square).available_moves():
+
                                 c.piece_clicked = square
                                 c.draw(pov)
                                 c.draw_click(square, pov)
@@ -179,7 +180,7 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
                                 c.board.move(c.piece_clicked, square)
                                 c.draw(pov)
                                 if c.in_progress() and play_against_bot:
-                                    bot(c.board)
+                                    GameState(c.board).make_best_move()  # Bot makes the move here
                                     c.draw(pov)
                             else:
                                 assign_piece_clicked(c)
@@ -191,7 +192,5 @@ def run(c: ChessGame, play_against_bot: bool, user_color_or_pov: bool) -> None:
 
 
 if __name__ == '__main__':
-    b = Board()
-    # debug_001(b)
-    c = ChessGame(75, b)
+    c = ChessGame(75, Board())
     run(c, True, True)
