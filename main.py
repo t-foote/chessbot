@@ -795,10 +795,7 @@ class Board:
         if color is None:
             color = self.turn
         king = self.return_king(color)
-        if file_rank is None:
-            file, rank = king.file, king.rank
-        else:
-            file, rank = file_rank
+        file, rank = king.file, king.rank if file_rank is None else file_rank
         # Knight check:
         for i in [(1, 2), (1, -2), (-1, 2), (-1, -2), (2, 1), (2, -1), (-2, 1), (-2, -1)]:
             if in_range((file + i[0], rank + i[1])) and (
