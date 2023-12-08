@@ -12,7 +12,9 @@ def human_out(file_rank: Tuple[int, int]) -> str:
     return numbers[file] + str(rank)
 
 
-def in_range(file_rank: Tuple[int, int]) -> bool:
+def in_range(file_rank: Union[int, Tuple[int, int]]) -> bool:
+    if isinstance(file_rank, int):
+        return file_rank in range(1, 9)
     return file_rank[0] in range(1, 9) and file_rank[1] in range(1, 9)
 
 
