@@ -99,9 +99,12 @@ class Knight(AbstractPiece):
                 continue
             new_square: MaybePiece = self.board[f:r]
             if new_square is None or new_square.color != self.color:
-                out.append(new_square)
+                out.append((f, r))
                 if new_square is not None:
                     self.pieces_can_capture.append((f, r))
+        if None in out:
+            # This shouldn't be raised
+            raise RuntimeError(f"NoneType found in get_valid_moves()")
         return out
 
 
@@ -119,14 +122,18 @@ class Pawn(AbstractPiece):
         # todo consider pawn promotion
 
         # Moving forward 1 square:
-        new_square: MaybePiece = self.board[self.file: self.rank + direction]
+        f = self.file
+        r = self.rank + direction
+        new_square: MaybePiece = self.board[f:r]
         if new_square is None:
-            out.append(new_square)
+            out.append((f, r))
 
             # Moving forward 2 squares:
-            new_square: MaybePiece = self.board[self.file: 4 if self.color else 5]
+            f = self.file
+            r = 4 if self.color else 5
+            new_square: MaybePiece = self.board[f:r]
             if is_home_rank and new_square is None:
-                out.append(new_square)
+                out.append((f, r))
 
         # Capture:
         for i in (1, -1):
@@ -137,7 +144,7 @@ class Pawn(AbstractPiece):
             new_square: MaybePiece = self.board[f:r]
             if new_square is not None and new_square.color != self.color:
                 self.pieces_can_capture.append((f, r))
-                out.append(new_square)
+                out.append((f, r))
 
         # En-passant:
             # todo

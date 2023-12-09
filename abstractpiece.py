@@ -2,6 +2,7 @@ from abstractboard import AbstractBoard
 from abc import ABC, abstractmethod
 from header import in_range, Coordinates, human_out, color_str
 from typing import Optional, List
+from copy import copy
 
 
 class AbstractPiece(ABC):
@@ -16,6 +17,15 @@ class AbstractPiece(ABC):
         self.rank = rank
         self._color = bool(color)
         self.pieces_can_capture: list = []
+
+    def __eq__(self, other):
+        return (
+            isinstance(other, self.__class__) and
+            isinstance(self, other.__class__) and
+            self.file == other.file and
+            self.rank == other.rank and
+            self.color == other.color
+        )
 
     def __repr__(self):
         return f"<{color_str(self.color, caps=False)} {self.__class__.__name__} at {human_out((self.file, self.rank))}>"
@@ -70,6 +80,16 @@ class AbstractPiece(ABC):
         self.pieces_can_capture = []
         self.get_valid_moves()
         return self.pieces_can_capture
+
+    def get_legal_moves(self) -> List[Coordinates]:
+        """ Returns a subset of get_valid_moves, but only moves that are legal (not in check) """
+        out = []
+        for square in self.get_valid_moves():
+            new_board = copy(self.board)
+            new_board.move_piece(self.file, self.rank, *square)
+            if not new_board.is_in_check():
+                out.append(square)
+        return out
 
 
 MaybePiece = Optional[AbstractPiece]

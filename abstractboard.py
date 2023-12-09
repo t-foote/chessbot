@@ -12,6 +12,15 @@ class AbstractBoard(ABC):
             self.grid[file] = {rank: None for rank in range(1, 9)}
         self.turn = turn
 
+    @abstractmethod
+    def __eq__(self, other):
+        """ To enforce repetition rules """
+        raise NotImplementedError
+
+    @abstractmethod
+    def __copy__(self):
+        raise NotImplementedError
+
     def __repr__(self):
         return f"<{self.__class__.__name__}: {color_str(self.turn)} TO PLAY>"
 
@@ -21,7 +30,7 @@ class AbstractBoard(ABC):
         for rank in range(8, 0, -1):
             for file in range(1, 9):
                 p = self[file:rank]
-                out += " " if p is None else str(self[file:rank]) + " "
+                out += (" " if p is None else str(self[file:rank])) + " "
             out = out[:-1] + "\n"
         out += color_str(self.turn) + " TO PLAY"
         return out
@@ -76,11 +85,46 @@ class AbstractBoard(ABC):
 
     @abstractmethod
     def add_piece(self, piece_type, file: int, rank: int, white: bool) -> bool:
-        """ Adds a piece to the board. Returns True iff piece was successfully added. """
+        """
+        If the specified square is occupied:
+            Returns False
+        Else:
+            Spawns a new piece onto that square
+            Returns True
+        """
+        raise NotImplementedError
+
+    def rm_piece(self, file: int, rank: int) -> bool:
+        """
+        If the specified square is occupied:
+            Removes the piece on that square
+            Returns True
+        Else:
+            Returns False
+        """
+        out = self[file:rank] is not None
+        self.grid[file][rank] = None
+        return out
+
+    @abstractmethod
+    def move_piece(self, old_file: int, old_rank: int, new_file: int, new_rank: int) -> bool:
+        """
+        If the specified old-square is empty OR the specified new-square is occupied by a piece of the same color:
+            Returns False
+        Else:
+            Moves the old-square piece to the new-square and removes the new-square's opponent piece if it exists
+            Returns True
+        """
         raise NotImplementedError
 
     @abstractmethod
     def is_in_check(self) -> bool:
         """ Returns True if the player whose turn it is is in check. """
         raise NotImplementedError
+
+    @abstractmethod
+    def get_new_board_after_move(self, old_file: int, old_rank: int, new_file: int, new_rank: int) -> "AbstractBoard":
+        """ Returns the new board after a piece is moved """
+        raise NotImplementedError
+
 
